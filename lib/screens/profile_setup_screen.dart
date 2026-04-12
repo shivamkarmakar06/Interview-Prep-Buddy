@@ -93,9 +93,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => LanguageSetupScreen(
-          pendingJoinCode: widget.pendingJoinCode,
-        ),
+        builder: (_) =>
+            LanguageSetupScreen(pendingJoinCode: widget.pendingJoinCode),
       ),
     );
   }
@@ -136,9 +135,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -165,10 +162,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 8),
               const Text(
                 'Before entering the app, please complete a few important details. You do not need to fill everything right now.',
-                style: TextStyle(
-                  color: Color(0xFF667085),
-                  height: 1.6,
-                ),
+                style: TextStyle(color: Color(0xFF667085), height: 1.6),
               ),
               const SizedBox(height: 20),
               Container(
@@ -200,10 +194,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       controller: collegeController,
                       label: 'College Name *',
                     ),
-                    buildField(
-                      controller: degreeController,
-                      label: 'Degree',
-                    ),
+                    buildField(controller: degreeController, label: 'Degree'),
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
@@ -217,9 +208,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: Text(
-                          saving ? 'Saving...' : 'Continue',
-                        ),
+                        child: Text(saving ? 'Saving...' : 'Continue'),
                       ),
                     ),
                   ],

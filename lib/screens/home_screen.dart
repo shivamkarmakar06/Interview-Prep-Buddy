@@ -21,7 +21,12 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       "question": "What are your strengths?",
-      "keywords": ["hardworking", "teamwork", "problem solving", "communication"],
+      "keywords": [
+        "hardworking",
+        "teamwork",
+        "problem solving",
+        "communication",
+      ],
     },
     {
       "question": "Why should we hire you?",
@@ -58,9 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ResultScreen(attempt: attempt),
-      ),
+      MaterialPageRoute(builder: (_) => ResultScreen(attempt: attempt)),
     );
   }
 
@@ -102,9 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
               value: selectedQuestionIndex,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
               items: List.generate(
                 questions.length,
                 (index) => DropdownMenuItem<int>(
@@ -121,10 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Text(
               "Question: $currentQuestion",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
             TextField(

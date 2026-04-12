@@ -48,7 +48,7 @@ class InterviewPrepBuddyApp extends StatelessWidget {
                   themeMode: themeMode,
                   theme: ThemeData(
                     useMaterial3: true,
-                    scaffoldBackgroundColor: const Color(0xFFF4F7FB),
+                    scaffoldBackgroundColor: const Color(0xFFFFFBF5),
                     colorScheme: ColorScheme.fromSeed(
                       seedColor: const Color(0xFF2346A0),
                       brightness: Brightness.light,
@@ -484,6 +484,8 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Attempt> attempts = [];
   int titleAnimationTick = 0;
+  String pendingMockQuestionId = '';
+  int mockSelectionVersion = 0;
   String pendingQuestionSearch = '';
   int questionSearchVersion = 0;
 
@@ -494,17 +496,9 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  void triggerTitleAnimation() {
-    setState(() {
-      titleAnimationTick++;
-      attempts.clear();
-    });
-  }
-
   Widget buildAnimatedTitle() {
     return GestureDetector(
       onTap: () {
-        triggerTitleAnimation();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Home refreshed'),
@@ -572,6 +566,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -591,6 +590,7 @@ class _MainScreenState extends State<MainScreen> {
           return Scaffold(
             appBar: AppBar(
               title: buildAnimatedTitle(),
+
               actions: [
                 NotificationBellButton(
                   onOpenTab: (index) {
@@ -846,11 +846,20 @@ class _MainScreenState extends State<MainScreen> {
             questions: questions,
             initialSearchQuery: pendingQuestionSearch,
             searchVersion: questionSearchVersion,
+            onOpenMockWithQuestion: (questionId) {
+              setState(() {
+                selectedIndex = 2;
+                pendingMockQuestionId = questionId;
+                mockSelectionVersion++;
+              });
+            },
           ),
 
           MockInterviewScreen(
             questions: questions,
             onSubmitAttempt: addAttempt,
+            initialQuestionId: pendingMockQuestionId,
+            selectionVersion: mockSelectionVersion,
           ),
           const SavedAnswersScreen(),
           const PerformanceScreen(),
@@ -858,257 +867,311 @@ class _MainScreenState extends State<MainScreen> {
         ];
 
         return Scaffold(
-          appBar: AppBar(
-            title: buildAnimatedTitle(),
-            actions: [
-              NotificationBellButton(
-                onOpenTab: (index) {
-                  setState(() {
-                    selectedIndex = index;
-                  });
-                },
-                onOpenQuestionSearch: (query) {
-                  setState(() {
-                    selectedIndex = 1;
-                    pendingQuestionSearch = query;
-                    questionSearchVersion++;
-                  });
-                },
-              ),
+          appBar: selectedIndex == 0
+              ? AppBar(
+                  title: buildAnimatedTitle(),
 
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.white,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                      ),
-                      builder: (context) {
-                        final userName = currentUser?.displayName ?? 'User';
-                        final userEmail = currentUser?.email ?? '';
-                        final userPhoto = currentUser?.photoURL;
-                        final initial = userName.isNotEmpty
-                            ? userName.trim().substring(0, 1).toUpperCase()
-                            : 'U';
-
-                        return SafeArea(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 42,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFD0D5DD),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                CircleAvatar(
-                                  radius: 34,
-                                  backgroundColor: const Color(0xFFE8EEFF),
-                                  backgroundImage: userPhoto != null
-                                      ? NetworkImage(userPhoto)
-                                      : null,
-                                  child: userPhoto == null
-                                      ? Text(
-                                          initial,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF2346A0),
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1C2434),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  userEmail,
-                                  style: const TextStyle(
-                                    color: Color(0xFF667085),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const ProfileScreen(),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.person_outline),
-                                    label: const Text('Open Profile'),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const SettingsScreen(),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.settings_outlined),
-                                    label: const Text('Settings'),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      Navigator.pop(context);
-                                      await FirebaseAuth.instance.signOut();
-                                      if (!context.mounted) return;
-                                      Navigator.of(
-                                        context,
-                                      ).pushNamedAndRemoveUntil(
-                                        '/',
-                                        (route) => false,
-                                      );
-                                    },
-                                    icon: const Icon(Icons.logout),
-                                    label: const Text('Sign Out'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFE4583E),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                  actions: [
+                    NotificationBellButton(
+                      onOpenTab: (index) {
+                        setState(() {
+                          selectedIndex = index;
+                        });
                       },
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFDCE7FF),
-                        width: 2,
-                      ),
+                      onOpenQuestionSearch: (query) {
+                        setState(() {
+                          selectedIndex = 1;
+                          pendingQuestionSearch = query;
+                          questionSearchVersion++;
+                        });
+                      },
                     ),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: const Color(0xFFE8EEFF),
-                      backgroundImage: currentUser?.photoURL != null
-                          ? NetworkImage(currentUser!.photoURL!)
-                          : null,
-                      child: currentUser?.photoURL == null
-                          ? Text(
-                              (currentUser?.displayName?.isNotEmpty ?? false)
-                                  ? currentUser!.displayName!
+
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.white,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(24),
+                              ),
+                            ),
+                            builder: (context) {
+                              final userName =
+                                  currentUser?.displayName ?? 'User';
+                              final userEmail = currentUser?.email ?? '';
+                              final userPhoto = currentUser?.photoURL;
+                              final initial = userName.isNotEmpty
+                                  ? userName
                                         .trim()
                                         .substring(0, 1)
                                         .toUpperCase()
-                                  : 'U',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2346A0),
-                              ),
-                            )
-                          : null,
+                                  : 'U';
+
+                              return SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    20,
+                                    20,
+                                    24,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFD0D5DD),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      CircleAvatar(
+                                        radius: 34,
+                                        backgroundColor: const Color(
+                                          0xFFE8EEFF,
+                                        ),
+                                        backgroundImage: userPhoto != null
+                                            ? NetworkImage(userPhoto)
+                                            : null,
+                                        child: userPhoto == null
+                                            ? Text(
+                                                initial,
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF2346A0),
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        userName,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1C2434),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        userEmail,
+                                        style: const TextStyle(
+                                          color: Color(0xFF667085),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const ProfileScreen(),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.person_outline,
+                                          ),
+                                          label: const Text('Open Profile'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const SettingsScreen(),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.settings_outlined,
+                                          ),
+                                          label: const Text('Settings'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () async {
+                                            Navigator.pop(context);
+                                            await FirebaseAuth.instance
+                                                .signOut();
+                                            if (!context.mounted) return;
+                                            Navigator.of(
+                                              context,
+                                            ).pushNamedAndRemoveUntil(
+                                              '/',
+                                              (route) => false,
+                                            );
+                                          },
+                                          icon: const Icon(Icons.logout),
+                                          label: const Text('Sign Out'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFFE4583E,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFDCE7FF),
+                              width: 2,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: const Color(0xFFE8EEFF),
+                            backgroundImage: currentUser?.photoURL != null
+                                ? NetworkImage(currentUser!.photoURL!)
+                                : null,
+                            child: currentUser?.photoURL == null
+                                ? Text(
+                                    (currentUser?.displayName?.isNotEmpty ??
+                                            false)
+                                        ? currentUser!.displayName!
+                                              .trim()
+                                              .substring(0, 1)
+                                              .toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF2346A0),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+                  ],
+                )
+              : null,
           body: screens[selectedIndex],
-          bottomNavigationBar: NavigationBar(
-            height: 72,
-            selectedIndex: selectedIndex,
-            backgroundColor: Colors.white,
-            indicatorColor: const Color(0xFFDCE7FF),
-            onDestinationSelected: (index) {
-              setState(() {
-                selectedIndex = index;
-              });
-            },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: "Home",
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.menu_book_outlined),
-                selectedIcon: Icon(Icons.menu_book),
-                label: "Questions",
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.mic_none_outlined),
-                selectedIcon: Icon(Icons.mic),
-                label: "Mock",
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bookmark_border),
-                selectedIcon: Icon(Icons.bookmark),
-                label: "Saved",
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bar_chart_outlined),
-                selectedIcon: Icon(Icons.bar_chart),
-                label: "Analysis",
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: "Peers",
-              ),
-            ],
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F8B78),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x16000000),
+                  blurRadius: 18,
+                  offset: Offset(0, -5),
+                ),
+              ],
+            ),
+            child: NavigationBar(
+              height: 60,
+              selectedIndex: selectedIndex,
+              backgroundColor: Color(0xFF0F8B78),
+              indicatorColor: Color(0xFF46B9A8),
+              labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((
+                states,
+              ) {
+                return const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                );
+              }),
+              onDestinationSelected: (index) {
+                setState(() {
+                  selectedIndex = index;
+                });
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined, color: Colors.white),
+                  selectedIcon: Icon(Icons.home, color: Colors.white),
+                  label: "Home",
+                ),
+
+                NavigationDestination(
+                  icon: Icon(Icons.menu_book_outlined, color: Colors.white),
+                  selectedIcon: Icon(Icons.menu_book, color: Colors.white),
+                  label: "Questions",
+                ),
+
+                NavigationDestination(
+                  icon: Icon(Icons.mic_none_outlined, color: Colors.white),
+                  selectedIcon: Icon(Icons.mic, color: Colors.white),
+                  label: "Mock",
+                ),
+
+                NavigationDestination(
+                  icon: Icon(Icons.bookmark_border, color: Colors.white),
+                  selectedIcon: Icon(Icons.bookmark, color: Colors.white),
+                  label: "Saved",
+                ),
+
+                NavigationDestination(
+                  icon: Icon(Icons.bar_chart_outlined, color: Colors.white),
+                  selectedIcon: Icon(Icons.bar_chart, color: Colors.white),
+                  label: "Analysis",
+                ),
+
+                NavigationDestination(
+                  icon: Icon(Icons.people_outline, color: Colors.white),
+                  selectedIcon: Icon(Icons.people, color: Colors.white),
+                  label: "Peers",
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1126,220 +1189,270 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenTab,
   });
 
-  double getAverageScore() {
-    if (attempts.isEmpty) return 0;
-    final total = attempts.fold<double>(0, (sum, item) => sum + item.score);
-    return total / attempts.length;
-  }
-
-  int getWeakAreaCount() {
-    return attempts.where((a) => a.weakArea != "Good performance").length;
-  }
-
-  String getAverageWords() {
-    if (attempts.isEmpty) return "0";
-    final total = attempts.fold<int>(0, (sum, item) => sum + item.wordCount);
-    return (total / attempts.length).toStringAsFixed(0);
-  }
-
-  double getAverageVoiceAccuracy() {
-    if (attempts.isEmpty) return 0;
-    final total = attempts.fold<double>(
-      0,
-      (sum, item) => sum + item.voiceAccuracy,
-    );
-    return total / attempts.length;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final avgScore = getAverageScore();
-    final avgVoice = getAverageVoiceAccuracy();
-
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 26),
         children: [
           Container(
-            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF18357E),
-                  Color(0xFF2346A0),
-                  Color(0xFF4D7BFF),
+                  Color(0xFFF5FFF8),
+                  Color(0xFFF4FBFF),
+                  Color(0xFFF8FFF3),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2346A0).withOpacity(0.22),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Interview Prep Buddy",
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "Practice smarter, track your speaking confidence, improve weak areas, and grow with real peer-based interview preparation.",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFFDDE7FF),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _heroChip("Mock Practice"),
-                    _heroChip("Voice Input"),
-                    _heroChip("Saved Answers"),
-                    _heroChip("Peer Connect"),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "Performance Snapshot",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C2434),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "Tap any card to jump into the relevant section.",
-            style: TextStyle(color: Color(0xFF667085)),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  title: "Attempts",
-                  value: "${attempts.length}",
-                  colors: const [Color(0xFF4255C4), Color(0xFF5F74E6)],
-                  icon: Icons.flag_rounded,
-                  onTap: () => onOpenTab(4),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: "Confidence",
-                  value: "${avgScore.toStringAsFixed(0)}%",
-                  colors: const [Color(0xFF0F9D94), Color(0xFF14B8A6)],
-                  icon: Icons.psychology_alt_rounded,
-                  onTap: () => onOpenTab(4),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  title: "Weak Areas",
-                  value: "${getWeakAreaCount()}",
-                  colors: const [Color(0xFFFF6A3D), Color(0xFFFF8C42)],
-                  icon: Icons.warning_amber_rounded,
-                  onTap: () => onOpenTab(4),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatCard(
-                  title: "Avg Words",
-                  value: getAverageWords(),
-                  colors: const [Color(0xFF9229B8), Color(0xFFB245D1)],
-                  icon: Icons.notes_rounded,
-                  onTap: () => onOpenTab(2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          StatCard(
-            title: "Voice Accuracy",
-            value: "${avgVoice.toStringAsFixed(1)}%",
-            colors: const [Color(0xFF0D8ABC), Color(0xFF35B6E8)],
-            icon: Icons.graphic_eq_rounded,
-            onTap: () => onOpenTab(4),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE1F0E7)),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x12000000),
+                  color: Color(0x10000000),
                   blurRadius: 12,
-                  offset: Offset(0, 4),
+                  offset: Offset(0, 5),
                 ),
               ],
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Why This Dashboard Matters",
+            child: Theme(
+              data: Theme.of(
+                context,
+              ).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                leading: Container(
+                  height: 46,
+                  width: 46,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9F7EF),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.route_rounded,
+                    color: Color(0xFF32A56A),
+                  ),
+                ),
+                title: const Text(
+                  "How To Use Prep Buddy",
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 18.5,
+                    fontWeight: FontWeight.w800,
                     color: Color(0xFF1C2434),
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  "This home page is your quick overview. You can jump directly into practice, check your analysis, review saved work, or continue peer collaboration from here.",
-                  style: TextStyle(color: Color(0xFF667085), height: 1.6),
+                subtitle: const Text(
+                  "Tap to view the steps",
+                  style: TextStyle(
+                    color: Color(0xFF667085),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                trailing: Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F4F7),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.handshake_outlined,
+                    color: Color(0xFF667085),
+                  ),
+                ),
+                children: [
+                  _infoStep(
+                    number: "1",
+                    title: "Start with questions",
+                    subtitle:
+                        "Go through the question bank and understand the kind of answers companies expect.",
+                  ),
+                  const SizedBox(height: 10),
+                  _infoStep(
+                    number: "2",
+                    title: "Practice your answers",
+                    subtitle:
+                        "Use mock interview mode to answer by text or voice and improve speaking confidence.",
+                  ),
+                  const SizedBox(height: 10),
+                  _infoStep(
+                    number: "3",
+                    title: "Review your growth",
+                    subtitle:
+                        "Open analysis and saved answers to understand progress and revisit weak points.",
+                  ),
+                  const SizedBox(height: 10),
+                  _infoStep(
+                    number: "4",
+                    title: "Practice with peers",
+                    subtitle:
+                        "Connect with another user, compare progress, and continue preparation together.",
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33274A9F),
+                  blurRadius: 22,
+                  offset: Offset(0, 10),
                 ),
               ],
             ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/prep_buddy.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF1D3F96).withOpacity(0.78),
+                            const Color(0xFF264EAF).withOpacity(0.72),
+                            const Color(0xFF4A74F4).withOpacity(0.66),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          height: 56,
+                          width: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.auto_awesome_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.school_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Interview Prep Buddy",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          "Practice smarter, stay organized, and build confidence with structured interview preparation in one place.",
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            color: Color(0xFFDDE7FF),
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _heroChip(
+                                label: "Question Bank",
+                                icon: Icons.auto_stories_rounded,
+                                color: const Color(0xFF6C79E8),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _heroChip(
+                                label: "Mock Practice",
+                                icon: Icons.mic_external_on_rounded,
+                                color: const Color(0xFF45B48E),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _heroChip(
+                                label: "Saved Answers",
+                                icon: Icons.bookmark_added_rounded,
+                                color: const Color(0xFF72B85D),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _heroChip(
+                                label: "Peer Connect",
+                                icon: Icons.handshake_rounded,
+                                color: const Color(0xFF56B29A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 22),
+
           const Text(
             "Core Features",
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
               color: Color(0xFF1C2434),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            "Each feature is designed to support a different part of your interview preparation journey.",
-            style: TextStyle(color: Color(0xFF667085), height: 1.5),
-          ),
           const SizedBox(height: 14),
+
           FeatureTile(
             title: "Question Bank",
             subtitle:
                 "Explore interview questions in one place and prepare systematically with structured practice.",
             icon: Icons.menu_book_rounded,
-            iconBg: const Color(0xFFE3EEFF),
-            iconColor: const Color(0xFF2B5EC9),
+            backgroundImage: 'assets/images/books_pattern.png',
+            iconBg: const Color(0xFF1B2A58),
+            iconColor: Colors.white,
+            cardColors: const [Color(0xFF243B75), Color(0xFF304C97)],
             onTap: () => onOpenTab(1),
           ),
           const SizedBox(height: 12),
@@ -1348,8 +1461,10 @@ class HomeScreen extends StatelessWidget {
             subtitle:
                 "Practice answers by typing or speaking and build more natural, interview-ready responses.",
             icon: Icons.mic_rounded,
-            iconBg: const Color(0xFFFFE7E2),
-            iconColor: const Color(0xFFE05A37),
+            backgroundImage: 'assets/images/mock_pattern.png',
+            iconBg: const Color(0xFFF2F4F7),
+            iconColor: const Color(0xFF344054),
+            cardColors: const [Colors.white, Colors.white],
             onTap: () => onOpenTab(2),
           ),
           const SizedBox(height: 12),
@@ -1358,8 +1473,10 @@ class HomeScreen extends StatelessWidget {
             subtitle:
                 "Keep your best answers in one place so you can review, edit, and refine them later.",
             icon: Icons.bookmark_rounded,
-            iconBg: const Color(0xFFE8F1FF),
+            backgroundImage: 'assets/images/saved_pattern.png',
+            iconBg: const Color(0xFFEAF1FF),
             iconColor: const Color(0xFF2346A0),
+            cardColors: const [Colors.white, Colors.white],
             onTap: () => onOpenTab(3),
           ),
           const SizedBox(height: 12),
@@ -1368,8 +1485,10 @@ class HomeScreen extends StatelessWidget {
             subtitle:
                 "Track score, weak areas, keyword match, and voice accuracy to improve over time.",
             icon: Icons.bar_chart_rounded,
-            iconBg: const Color(0xFFE4F8F4),
+            backgroundImage: 'assets/images/analysis_pattern.png',
+            iconBg: const Color(0xFFE8F7F4),
             iconColor: const Color(0xFF14967F),
+            cardColors: const [Colors.white, Colors.white],
             onTap: () => onOpenTab(4),
           ),
           const SizedBox(height: 12),
@@ -1378,66 +1497,79 @@ class HomeScreen extends StatelessWidget {
             subtitle:
                 "Connect with friends, view their progress, and continue preparation through chat and peer support.",
             icon: Icons.people_alt_rounded,
+            backgroundImage: 'assets/images/peers_pattern.png',
             iconBg: const Color(0xFFFFF2DF),
             iconColor: const Color(0xFFE39A1A),
+            cardColors: const [Colors.white, Colors.white],
             onTap: () => onOpenTab(5),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "How To Use Prep Buddy",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C2434),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _infoStep(
-            number: "1",
-            title: "Start with questions",
-            subtitle:
-                "Go through the question bank and understand the kind of answers companies expect.",
-          ),
-          const SizedBox(height: 12),
-          _infoStep(
-            number: "2",
-            title: "Practice your answers",
-            subtitle:
-                "Use mock interview mode to answer by text or voice and improve speaking confidence.",
-          ),
-          const SizedBox(height: 12),
-          _infoStep(
-            number: "3",
-            title: "Review your growth",
-            subtitle:
-                "Open analysis and saved answers to understand progress and revisit weak points.",
-          ),
-          const SizedBox(height: 12),
-          _infoStep(
-            number: "4",
-            title: "Practice with peers",
-            subtitle:
-                "Connect with another user, compare progress, and continue preparation together.",
           ),
         ],
       ),
     );
   }
 
-  Widget _heroChip(String label) {
+  Widget _heroChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    String leadingVisual = "📘";
+    String trailingVisual = "";
+
+    if (label == "Question Bank") {
+      leadingVisual = "💡";
+      trailingVisual = "📚";
+    } else if (label == "Mock Practice") {
+      leadingVisual = "🎙️";
+      trailingVisual = "🗣️";
+    } else if (label == "Saved Answers") {
+      leadingVisual = "🔖";
+      trailingVisual = "💬";
+    } else if (label == "Peer Connect") {
+      leadingVisual = "🧑‍🤝‍🧑";
+      trailingVisual = "🤝";
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.94), color],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.3),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.24),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(leadingVisual, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.8,
+              ),
+            ),
+          ),
+          if (trailingVisual.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(trailingVisual, style: const TextStyle(fontSize: 20)),
+          ],
+        ],
       ),
     );
   }
@@ -1450,12 +1582,17 @@ class HomeScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF4F7), Color(0xFFf1FCF7), Color(0xFFF6FFFB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFCBEBDD)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
-            blurRadius: 12,
+            blurRadius: 10,
             offset: Offset(0, 4),
           ),
         ],
@@ -1463,14 +1600,23 @@ class HomeScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFFE8EEFF),
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Color(0xFF2346A0),
-                fontWeight: FontWeight.w800,
+          Container(
+            height: 34,
+            width: 34,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEAF1FF), Color(0xFFDDE8FF)],
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  color: Color(0xFF2346A0),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),
@@ -1483,14 +1629,18 @@ class HomeScreen extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: Color(0xFF1C2434),
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Color(0xFF667085), height: 1.5),
+                  style: const TextStyle(
+                    color: Color(0xFF667085),
+                    height: 1.5,
+                    fontSize: 13.5,
+                  ),
                 ),
               ],
             ),
@@ -1542,14 +1692,18 @@ class StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Colors.white, size: 24),
+            Icon(
+              icon,
+              color: const Color.fromARGB(255, 255, 255, 255),
+              size: 24,
+            ),
             const Spacer(),
             Text(
               value,
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: Color.fromARGB(255, 255, 255, 255),
               ),
             ),
             const SizedBox(height: 6),
@@ -1574,6 +1728,8 @@ class FeatureTile extends StatelessWidget {
   final IconData icon;
   final Color iconBg;
   final Color iconColor;
+  final List<Color> cardColors;
+  final String? backgroundImage;
   final VoidCallback? onTap;
 
   const FeatureTile({
@@ -1583,18 +1739,21 @@ class FeatureTile extends StatelessWidget {
     required this.icon,
     required this.iconBg,
     required this.iconColor,
+    required this.cardColors,
+    this.backgroundImage,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = backgroundImage != null;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        constraints: const BoxConstraints(minHeight: 112),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: const [
             BoxShadow(
               color: Color(0x14000000),
@@ -1603,49 +1762,114 @@ class FeatureTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Container(
-              height: 54,
-              width: 54,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: hasImage
+                    ? Image.asset(backgroundImage!, fit: BoxFit.cover)
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: cardColors,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
               ),
-              child: Icon(icon, color: iconColor, size: 28),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1C2434),
+
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: hasImage
+                          ? [
+                              Colors.black.withOpacity(0.62),
+                              Colors.black.withOpacity(0.38),
+                            ]
+                          : [
+                              Colors.black.withOpacity(0.18),
+                              Colors.black.withOpacity(0.08),
+                            ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: Color(0xFF667085),
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: Color(0xFF98A2B3),
-            ),
-          ],
+
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 56,
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: iconBg,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(icon, color: iconColor, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              height: 1.4,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1656,10 +1880,12 @@ class QuestionBankScreen extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
   final String initialSearchQuery;
   final int searchVersion;
+  final void Function(String questionId) onOpenMockWithQuestion;
 
   const QuestionBankScreen({
     super.key,
     required this.questions,
+    required this.onOpenMockWithQuestion,
     this.initialSearchQuery = '',
     this.searchVersion = 0,
   });
@@ -1671,6 +1897,7 @@ class QuestionBankScreen extends StatefulWidget {
 class _QuestionBankScreenState extends State<QuestionBankScreen> {
   final TextEditingController searchController = TextEditingController();
   String searchQuery = '';
+  String selectedSection = 'my';
   @override
   void initState() {
     super.initState();
@@ -1753,6 +1980,134 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     );
   }
 
+  Future<void> editQuestion({
+    required BuildContext context,
+    required String questionId,
+    required String oldQuestion,
+    required String oldType,
+    required List<String> oldKeywords,
+  }) async {
+    final questionController = TextEditingController(text: oldQuestion);
+    final keywordsController = TextEditingController(
+      text: oldKeywords.join(', '),
+    );
+
+    String selectedType = oldType;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        bool saving = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Question'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: questionController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Question',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'Question Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'HR', child: Text('HR')),
+                        DropdownMenuItem(
+                          value: 'Technical',
+                          child: Text('Technical'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() {
+                            selectedType = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: keywordsController,
+                      decoration: const InputDecoration(
+                        labelText: 'Keywords (comma separated)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final updatedQuestion = questionController.text
+                              .trim();
+                          final keywords = keywordsController.text
+                              .split(',')
+                              .map((e) => e.trim())
+                              .where((e) => e.isNotEmpty)
+                              .toList();
+
+                          if (updatedQuestion.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Question empty nahi ho sakta'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() {
+                            saving = true;
+                          });
+
+                          await FirebaseFirestore.instance
+                              .collection('questions')
+                              .doc(questionId)
+                              .update({
+                                'question': updatedQuestion,
+                                'type': selectedType,
+                                'keywords': keywords,
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+
+                          if (!context.mounted) return;
+
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Question updated successfully'),
+                            ),
+                          );
+                        },
+                  child: Text(saving ? 'Saving...' : 'Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   List<Map<String, dynamic>> sortQuestions(List<Map<String, dynamic>> items) {
     final sorted = List<Map<String, dynamic>>.from(items);
 
@@ -1804,13 +2159,21 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
 
     final question = (item['question'] ?? '').toString().toLowerCase();
     final type = (item['type'] ?? '').toString().toLowerCase();
-    final keywords = (item['keywords'] as List<dynamic>? ?? [])
+    final keywordList = (item['keywords'] as List<dynamic>? ?? [])
         .map((e) => e.toString().toLowerCase())
-        .join(' ');
+        .toList();
 
-    return question.contains(query) ||
-        type.contains(query) ||
-        keywords.contains(query);
+    final questionWords = question.split(RegExp(r'\s+'));
+    final typeWords = type.split(RegExp(r'\s+'));
+
+    final questionStarts = question.startsWith(query);
+    final typeStarts = type.startsWith(query);
+    final wordStarts =
+        questionWords.any((word) => word.startsWith(query)) ||
+        typeWords.any((word) => word.startsWith(query)) ||
+        keywordList.any((word) => word.startsWith(query));
+
+    return questionStarts || typeStarts || wordStarts;
   }
 
   Widget buildQuestionCard({
@@ -1822,6 +2185,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     final isPinned = item["isPinned"] == true;
     final createdBy = item["createdBy"] ?? '';
     final questionId = item["id"] ?? '';
+    final keywords = List<String>.from(item["keywords"] ?? []);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1909,8 +2273,9 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+
                 if (isMine) ...[
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -1924,11 +2289,56 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                           },
                           icon: Icon(
                             isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                            size: 17,
                           ),
-                          label: Text(isPinned ? 'Unpin' : 'Pin to Top'),
+                          label: Text(
+                            isPinned ? 'Unpin' : 'Pin',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2346A0),
+                            backgroundColor: const Color(0xFFEAF1FF),
+                            side: const BorderSide(color: Color(0xFFC9D9FF)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            visualDensity: VisualDensity.compact,
+                            textStyle: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            editQuestion(
+                              context: context,
+                              questionId: questionId,
+                              oldQuestion: item["question"] ?? '',
+                              oldType: item["type"] ?? 'HR',
+                              oldKeywords: keywords,
+                            );
+                          },
+                          icon: const Icon(Icons.edit, size: 17),
+                          label: const Text(
+                            'Edit',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F766E),
+                            backgroundColor: const Color(0xFFE8F7F4),
+                            side: const BorderSide(color: Color(0xFFBFE9E1)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            visualDensity: VisualDensity.compact,
+                            textStyle: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
@@ -1937,16 +2347,76 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                               questionId: questionId,
                             );
                           },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Delete'),
+                          icon: const Icon(Icons.delete, size: 17),
+                          label: const Text(
+                            'Delete',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFE4583E),
+                            backgroundColor: const Color(0xFFFFF1EE),
+                            side: const BorderSide(color: Color(0xFFFFD4CC)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            visualDensity: VisualDensity.compact,
+                            textStyle: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
+                ] else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        togglePinQuestion(
+                          context: context,
+                          questionId: questionId,
+                          currentPinnedValue: isPinned,
+                        );
+                      },
+                      icon: Icon(
+                        isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                        size: 17,
+                      ),
+                      label: Text(isPinned ? 'Unpin' : 'Pin to Top'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF2346A0),
+                        backgroundColor: const Color(0xFFEAF1FF),
+                        side: const BorderSide(color: Color(0xFFC9D9FF)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
+
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      widget.onOpenMockWithQuestion(questionId);
+                    },
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Practice This Question'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F766E),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1971,6 +2441,9 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     final cloudQuestions = sortQuestions(
       widget.questions.where(matchesQuestionSearch).toList(),
     );
+    final visibleQuestions = searchQuery.trim().isNotEmpty
+        ? cloudQuestions
+        : (selectedSection == 'my' ? myQuestions : cloudQuestions);
 
     return SafeArea(
       child: Padding(
@@ -1978,68 +2451,201 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Question Bank",
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF18357E),
+                    Color(0xFF2346A0),
+                    Color(0xFF4D7BFF),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Question Bank",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    selectedSection == 'my'
+                        ? "Yours: yahan sirf aapke questions dikh rahe hain."
+                        : "Clouds: yahan sab users ke questions dikh rahe hain, including yours.",
+                    style: const TextStyle(
+                      color: Color(0xFFDDE7FF),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddQuestionScreen(),
+                          ),
+                        );
+
+                        if (result is Map<String, dynamic> &&
+                            result['openMock'] == true &&
+                            result['questionId'] != null) {
+                          widget.onOpenMockWithQuestion(
+                            result['questionId'].toString(),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                      label: const Text('Add Question'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF2346A0),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      SizedBox(height: 6),
-                      Text(
-                        "Apne questions alag dekho aur neeche cloud me sab users ke questions explore karo.",
-                        style: TextStyle(color: Color(0xFF667085)),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AddQuestionScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Question'),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 18),
-            TextField(
-              controller: searchController,
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search by question, type, or keyword',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          searchController.clear();
-                          setState(() {
-                            searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(Icons.close),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedSection = 'my';
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selectedSection == 'my'
+                              ? const Color(0xFFEAF1FF)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'My Questions',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selectedSection == 'my'
+                                ? const Color(0xFF2346A0)
+                                : const Color(0xFF667085),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedSection = 'cloud';
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selectedSection == 'cloud'
+                              ? const Color(0xFFE8F7F4)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Cloud Questions',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selectedSection == 'cloud'
+                                ? const Color(0xFF0F766E)
+                                : const Color(0xFF667085),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: searchController,
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search question, type, or keyword',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            searchController.clear();
+                            setState(() {
+                              searchQuery = '';
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -2048,56 +2654,39 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
               child: ListView(
                 children: [
                   sectionHeading(
-                    'My Questions',
-                    'Sirf wahi questions jo aapne add kiye hain. Inhe pin ya delete bhi kar sakte ho.',
+                    selectedSection == 'my'
+                        ? 'My Questions'
+                        : 'Cloud Questions',
+                    selectedSection == 'my'
+                        ? 'Sirf wahi questions jo aapne add kiye hain.'
+                        : 'Yahan sab users ke total questions dikhte hain.',
                   ),
                   const SizedBox(height: 14),
-                  if (myQuestions.isEmpty)
+                  if (visibleQuestions.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        'Aapne abhi tak koi question add nahi kiya hai.',
+                      child: Text(
+                        selectedSection == 'my'
+                            ? 'Aapne abhi tak koi question add nahi kiya hai.'
+                            : 'Abhi koi cloud question available nahi hai.',
                       ),
                     )
                   else
-                    ...myQuestions.map(
-                      (item) => buildQuestionCard(
+                    ...visibleQuestions.map((item) {
+                      final isMine =
+                          item['createdByUid'] == currentUser?.uid ||
+                          item['createdBy'] == currentUser?.email;
+
+                      return buildQuestionCard(
                         context: context,
                         item: item,
-                        isMine: true,
-                      ),
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  sectionHeading(
-                    'Cloud Questions',
-                    'Yahan sab users ke total questions dikhte hain, including your own questions as well.',
-                  ),
-                  const SizedBox(height: 14),
-                  if (cloudQuestions.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Abhi koi cloud question available nahi hai.',
-                      ),
-                    )
-                  else
-                    ...cloudQuestions.map(
-                      (item) => buildQuestionCard(
-                        context: context,
-                        item: item,
-                        isMine: false,
-                      ),
-                    ),
+                        isMine: isMine,
+                      );
+                    }),
                 ],
               ),
             ),
@@ -2117,11 +2706,15 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
 class MockInterviewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
   final Function(Attempt) onSubmitAttempt;
+  final String initialQuestionId;
+  final int selectionVersion;
 
   const MockInterviewScreen({
     super.key,
     required this.questions,
     required this.onSubmitAttempt,
+    this.initialQuestionId = '',
+    this.selectionVersion = 0,
   });
 
   @override
@@ -2137,11 +2730,15 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
   bool isListening = false;
   double speechConfidence = 0.0;
   String speechStatus = 'Mic ready';
+  String inputMode = '';
 
   @override
   void initState() {
     super.initState();
     initSpeech();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      applyInitialQuestionSelection();
+    });
   }
 
   Future<void> initSpeech() async {
@@ -2164,6 +2761,20 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
 
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  void applyInitialQuestionSelection() {
+    if (widget.initialQuestionId.isEmpty || widget.questions.isEmpty) return;
+
+    final index = widget.questions.indexWhere(
+      (item) => item['id'] == widget.initialQuestionId,
+    );
+
+    if (index >= 0 && mounted) {
+      setState(() {
+        selectedQuestionIndex = index;
+      });
     }
   }
 
@@ -2205,6 +2816,18 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
 
       if (result.hasConfidenceRating && result.confidence > 0) {
         speechConfidence = result.confidence;
+      }
+    });
+  }
+
+  void selectInputMode(String mode) {
+    setState(() {
+      inputMode = mode;
+
+      if (mode != 'mic' && isListening) {
+        speechToText.stop();
+        isListening = false;
+        speechStatus = 'Mic ready';
       }
     });
   }
@@ -2286,10 +2909,21 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     if (widget.questions.isEmpty) return;
 
     final answer = answerController.text.trim();
+    if (inputMode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please choose input mode first.")),
+      );
+      return;
+    }
+
     if (answer.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please type or speak your answer first."),
+        SnackBar(
+          content: Text(
+            inputMode == 'mic'
+                ? "Please record your answer first."
+                : "Please type your answer first.",
+          ),
         ),
       );
       return;
@@ -2313,6 +2947,8 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     setState(() {
       speechConfidence = 0.0;
       speechStatus = 'Mic ready';
+      isListening = false;
+      inputMode = '';
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -2326,6 +2962,9 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
     if (widget.questions.isNotEmpty &&
         selectedQuestionIndex >= widget.questions.length) {
       selectedQuestionIndex = 0;
+    }
+    if (oldWidget.selectionVersion != widget.selectionVersion) {
+      applyInitialQuestionSelection();
     }
   }
 
@@ -2361,7 +3000,7 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            "Question choose karo, answer type karo ya mic se bolo",
+            "Question choose karo aur phir decide karo ki answer type karna hai ya mic use karna hai.",
             style: TextStyle(color: Color(0xFF667085)),
           ),
           const SizedBox(height: 18),
@@ -2380,17 +3019,35 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             ),
             child: DropdownButtonFormField<int>(
               value: selectedQuestionIndex,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: "Select Question",
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(16)),
                 ),
               ),
+              selectedItemBuilder: (context) {
+                return List.generate(
+                  widget.questions.length,
+                  (index) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      widget.questions[index]["question"],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                );
+              },
               items: List.generate(
                 widget.questions.length,
                 (index) => DropdownMenuItem(
                   value: index,
-                  child: Text(widget.questions[index]["question"]),
+                  child: Text(
+                    widget.questions[index]["question"],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               onChanged: (value) {
@@ -2433,80 +3090,185 @@ class _MockInterviewScreenState extends State<MockInterviewScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: answerController,
-            maxLines: 8,
-            decoration: InputDecoration(
-              hintText: "Type your answer here or use mic...",
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.all(18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: isListening ? stopListening : startListening,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isListening
-                        ? Colors.red
-                        : const Color(0xFF2346A0),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  icon: Icon(isListening ? Icons.stop : Icons.mic),
-                  label: Text(isListening ? "Stop Mic" : "Start Mic"),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Mic Status: $speechStatus",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                const Text(
+                  "Choose Input Method",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF1C2434),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  "Voice Accuracy: ${(speechConfidence * 100).toStringAsFixed(1)}%",
-                  style: const TextStyle(color: Color(0xFF667085)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          selectInputMode('type');
+                        },
+                        icon: const Icon(Icons.keyboard_alt_outlined),
+                        label: const Text('Type Answer'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: inputMode == 'type'
+                              ? Colors.white
+                              : const Color(0xFF2346A0),
+                          backgroundColor: inputMode == 'type'
+                              ? const Color(0xFF2346A0)
+                              : Colors.white,
+                          side: const BorderSide(color: Color(0xFF2346A0)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          selectInputMode('mic');
+                        },
+                        icon: const Icon(Icons.mic_none_rounded),
+                        label: const Text('Use Mic'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: inputMode == 'mic'
+                              ? Colors.white
+                              : const Color(0xFF0F766E),
+                          backgroundColor: inputMode == 'mic'
+                              ? const Color(0xFF0F766E)
+                              : Colors.white,
+                          side: const BorderSide(color: Color(0xFF0F766E)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+          if (inputMode == 'type') ...[
+            TextField(
+              controller: answerController,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: "Type your answer here...",
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.all(18),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          if (inputMode == 'mic') ...[
+            TextField(
+              controller: answerController,
+              readOnly: true,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: "Your live transcript will appear here...",
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.all(18),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          if (inputMode == 'mic') ...[
+            SizedBox(
+              height: 54,
+              child: ElevatedButton.icon(
+                onPressed: isListening ? stopListening : startListening,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isListening
+                      ? const Color(0xFFE4583E)
+                      : const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: Icon(
+                  isListening ? Icons.stop_circle_outlined : Icons.mic,
+                ),
+                label: Text(isListening ? "Stop Recording" : "Start Mic"),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (inputMode == 'mic') ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Mic Status: $speechStatus",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C2434),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Voice Accuracy: ${(speechConfidence * 100).toStringAsFixed(1)}%",
+                    style: const TextStyle(color: Color(0xFF667085)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
           SizedBox(
-            height: 54,
-            child: ElevatedButton(
+            height: 56,
+            child: ElevatedButton.icon(
               onPressed: submitAnswer,
+              icon: const Icon(Icons.analytics_outlined),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2346A0),
+                backgroundColor: const Color(0xFF1E3A8A),
                 foregroundColor: Colors.white,
+                elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Text(
+              label: const Text(
                 "Analyze & Save Answer",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
@@ -2655,43 +3417,11 @@ class _PerformanceContentState extends State<_PerformanceContent> {
         ),
         const SizedBox(height: 6),
         const Text(
-          "Top par overall report aur neeche selected question ki individual report",
+          "Top par selected question ki individual report aur neeche overall summary",
           style: TextStyle(color: Color(0xFF667085)),
         ),
-        const SizedBox(height: 18),
-        const Text(
-          "Overall Performance",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C2434),
-          ),
-        ),
-        const SizedBox(height: 14),
-        InfoCard(
-          title: "Total Saved Answers",
-          value: "${widget.totalAttempts}",
-          color: const Color(0xFF335CFF),
-        ),
-        const SizedBox(height: 12),
-        InfoCard(
-          title: "Average Score",
-          value: "${widget.averageScore.toStringAsFixed(1)}%",
-          color: const Color(0xFFFF8A3D),
-        ),
-        const SizedBox(height: 12),
-        InfoCard(
-          title: "Best Score",
-          value: "${widget.bestScore.toStringAsFixed(1)}%",
-          color: const Color(0xFF15A37D),
-        ),
-        const SizedBox(height: 12),
-        InfoCard(
-          title: "Top Weak Area",
-          value: widget.topWeakArea,
-          color: const Color(0xFFE4583E),
-        ),
         const SizedBox(height: 24),
+
         const Text(
           "Individual Question Report",
           style: TextStyle(
@@ -2716,17 +3446,35 @@ class _PerformanceContentState extends State<_PerformanceContent> {
           ),
           child: DropdownButtonFormField<int>(
             value: selectedAnswerIndex,
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: "Select Saved Answer",
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
               ),
             ),
+            selectedItemBuilder: (context) {
+              return List.generate(
+                widget.savedAnswers.length,
+                (index) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    widget.savedAnswers[index]['question'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              );
+            },
             items: List.generate(
               widget.savedAnswers.length,
               (index) => DropdownMenuItem(
                 value: index,
-                child: Text(widget.savedAnswers[index]['question']),
+                child: Text(
+                  widget.savedAnswers[index]['question'],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
             onChanged: (value) {
@@ -2811,6 +3559,41 @@ class _PerformanceContentState extends State<_PerformanceContent> {
             ],
           ),
         ),
+
+        const SizedBox(height: 24),
+
+        const Text(
+          "Overall Performance",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1C2434),
+          ),
+        ),
+        const SizedBox(height: 14),
+        InfoCard(
+          title: "Total Saved Answers",
+          value: "${widget.totalAttempts}",
+          color: const Color(0xFF335CFF),
+        ),
+        const SizedBox(height: 12),
+        InfoCard(
+          title: "Average Score",
+          value: "${widget.averageScore.toStringAsFixed(1)}%",
+          color: const Color(0xFFFF8A3D),
+        ),
+        const SizedBox(height: 12),
+        InfoCard(
+          title: "Best Score",
+          value: "${widget.bestScore.toStringAsFixed(1)}%",
+          color: const Color(0xFF15A37D),
+        ),
+        const SizedBox(height: 12),
+        InfoCard(
+          title: "Top Weak Area",
+          value: widget.topWeakArea,
+          color: const Color(0xFFE4583E),
+        ),
       ],
     );
   }
@@ -2886,6 +3669,8 @@ class _PeerPracticeScreenState extends State<PeerPracticeScreen> {
   SharedPreferences? peerPrefs;
   final TextEditingController peerSearchController = TextEditingController();
   String peerSearchQuery = '';
+  final TextEditingController inviteCodeController = TextEditingController();
+  final TextEditingController inviteNameController = TextEditingController();
 
   @override
   void initState() {
@@ -3013,6 +3798,172 @@ class _PeerPracticeScreenState extends State<PeerPracticeScreen> {
     ).showSnackBar(const SnackBar(content: Text('Peer removed successfully')));
   }
 
+  Future<void> openInviteCodeSheet() async {
+    inviteCodeController.clear();
+    inviteNameController.text = currentUserName;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Fill Invite Code',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C2434),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Agar aapke paas peer invite code hai, to yahan enter karke directly connect kar sakte ho.',
+                style: TextStyle(color: Color(0xFF667085), height: 1.5),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: inviteCodeController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  labelText: 'Invite Code',
+                  hintText: 'Enter code here',
+                  filled: true,
+                  fillColor: const Color(0xFFF4F7FB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: inviteNameController,
+                decoration: InputDecoration(
+                  labelText: 'Your Name',
+                  hintText: 'Enter your display name',
+                  filled: true,
+                  fillColor: const Color(0xFFF4F7FB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: joinWithInviteCode,
+                  icon: const Icon(Icons.link_rounded),
+                  label: const Text('Connect with Code'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2346A0),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> joinWithInviteCode() async {
+    final code = inviteCodeController.text.trim();
+    final enteredName = inviteNameController.text.trim();
+
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter invite code')));
+      return;
+    }
+
+    if (enteredName.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter your name')));
+      return;
+    }
+
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please login first')));
+      return;
+    }
+
+    final inviteDoc = await FirebaseFirestore.instance
+        .collection('peer_invites')
+        .doc(code)
+        .get();
+
+    if (!inviteDoc.exists) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid invite code')));
+      return;
+    }
+
+    final data = inviteDoc.data() as Map<String, dynamic>;
+
+    final status = (data['status'] ?? '').toString();
+    final ownerId = (data['ownerId'] ?? '').toString();
+    final joinedUserId = (data['joinedUserId'] ?? '').toString();
+
+    if (ownerId == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot join your own invite code')),
+      );
+      return;
+    }
+
+    if (status == 'joined' || joinedUserId.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This invite code has already been used')),
+      );
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('peer_invites')
+        .doc(code)
+        .update({
+          'joinedName': enteredName,
+          'joinedUserId': currentUserId,
+          'joinedPhotoUrl': currentUserPhotoUrl,
+          'status': 'joined',
+          'joinedAt': FieldValue.serverTimestamp(),
+        });
+
+    if (!mounted) return;
+
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Peer connected successfully')),
+    );
+  }
+
   String buildChatId(String userA, String userB) {
     final users = [userA, userB]..sort();
     return '${users[0]}_${users[1]}';
@@ -3088,13 +4039,39 @@ class _PeerPracticeScreenState extends State<PeerPracticeScreen> {
             style: TextStyle(color: Color(0xFF667085)),
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: addPerson,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: const Text("Add Person"),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: addPerson,
+                    icon: const Icon(Icons.person_add_alt_1),
+                    label: const Text("Add Person"),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: openInviteCodeSheet,
+                    icon: const Icon(Icons.password_rounded),
+                    label: const Text("Fill Invite Code"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF2346A0),
+                      side: const BorderSide(color: Color(0xFF2346A0)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Link share karke ya direct invite code fill karke peer connect kar sakte ho.',
+            style: TextStyle(color: Color(0xFF667085), height: 1.4),
           ),
           const SizedBox(height: 18),
           TextField(
@@ -3439,6 +4416,8 @@ class _PeerPracticeScreenState extends State<PeerPracticeScreen> {
   @override
   void dispose() {
     peerSearchController.dispose();
+    inviteCodeController.dispose();
+    inviteNameController.dispose();
     super.dispose();
   }
 }

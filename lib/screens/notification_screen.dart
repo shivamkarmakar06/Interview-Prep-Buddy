@@ -21,11 +21,20 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   static const String _messageSeenKey = 'notifications_last_seen_messages';
   static const String _questionSeenKey = 'notifications_last_seen_questions';
+  static const String _archivedMessagesKey = 'notifications_archived_messages';
+  static const String _archivedQuestionsKey =
+      'notifications_archived_questions';
+  static const String _deletedMessagesKey = 'notifications_deleted_messages';
+  static const String _deletedQuestionsKey = 'notifications_deleted_questions';
 
   DateTime messageSeenAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime questionSeenAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool loadingSeenState = true;
-  bool showUnreadOnly = false;
+  String selectedFilter = 'all';
+  Set<String> archivedMessageIds = {};
+  Set<String> archivedQuestionIds = {};
+  Set<String> deletedMessageIds = {};
+  Set<String> deletedQuestionIds = {};
 
   @override
   void initState() {
@@ -38,6 +47,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final savedMessageSeenAt = prefs.getInt(_messageSeenKey) ?? 0;
     final savedQuestionSeenAt = prefs.getInt(_questionSeenKey) ?? 0;
+    final savedArchivedMessages =
+        prefs.getStringList(_archivedMessagesKey) ?? <String>[];
+    final savedArchivedQuestions =
+        prefs.getStringList(_archivedQuestionsKey) ?? <String>[];
+    final savedDeletedMessages =
+        prefs.getStringList(_deletedMessagesKey) ?? <String>[];
+    final savedDeletedQuestions =
+        prefs.getStringList(_deletedQuestionsKey) ?? <String>[];
 
     final now = DateTime.now().millisecondsSinceEpoch;
 
@@ -49,6 +66,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() {
       messageSeenAt = DateTime.fromMillisecondsSinceEpoch(savedMessageSeenAt);
       questionSeenAt = DateTime.fromMillisecondsSinceEpoch(savedQuestionSeenAt);
+      archivedMessageIds = savedArchivedMessages.toSet();
+      archivedQuestionIds = savedArchivedQuestions.toSet();
+      deletedMessageIds = savedDeletedMessages.toSet();
+      deletedQuestionIds = savedDeletedQuestions.toSet();
       loadingSeenState = false;
     });
   }
@@ -66,6 +87,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool isNewItem(Timestamp? timestamp, DateTime seenAt) {
     if (timestamp == null) return false;
     return timestamp.toDate().isAfter(seenAt);
+  }
+
+  Future<void> archiveMessageNotification(String chatId) async {
+    final prefs = await SharedPreferences.getInstance();
+    archivedMessageIds.add(chatId);
+    await prefs.setStringList(
+      _archivedMessagesKey,
+      archivedMessageIds.toList(),
+    );
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> archiveQuestionNotification(String questionId) async {
+    final prefs = await SharedPreferences.getInstance();
+    archivedQuestionIds.add(questionId);
+    await prefs.setStringList(
+      _archivedQuestionsKey,
+      archivedQuestionIds.toList(),
+    );
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> deleteMessageNotification(String chatId) async {
+    final prefs = await SharedPreferences.getInstance();
+    deletedMessageIds.add(chatId);
+    await prefs.setStringList(_deletedMessagesKey, deletedMessageIds.toList());
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> deleteQuestionNotification(String questionId) async {
+    final prefs = await SharedPreferences.getInstance();
+    deletedQuestionIds.add(questionId);
+    await prefs.setStringList(
+      _deletedQuestionsKey,
+      deletedQuestionIds.toList(),
+    );
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool matchesFilter({required bool isNew, required bool isArchived}) {
+    switch (selectedFilter) {
+      case 'unread':
+        return isNew && !isArchived;
+      case 'archived':
+        return isArchived;
+      default:
+        return !isArchived;
+    }
   }
 
   @override
@@ -97,14 +174,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
               ),
-              FilterChip(
-                label: const Text('Unread Only'),
-                selected: showUnreadOnly,
-                onSelected: (value) {
-                  setState(() {
-                    showUnreadOnly = value;
-                  });
-                },
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: DropdownButton<String>(
+                  value: selectedFilter,
+                  underline: const SizedBox.shrink(),
+                  borderRadius: BorderRadius.circular(16),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All')),
+                    DropdownMenuItem(value: 'unread', child: Text('Unread')),
+                    DropdownMenuItem(
+                      value: 'archived',
+                      child: Text('Archived'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedFilter = value;
+                      });
+                    }
+                  },
+                ),
               ),
             ],
           ),
@@ -159,13 +261,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 return lastMessage.isNotEmpty && senderId != user.uid;
               }).toList();
 
-              final filteredIncomingMessageDocs = showUnreadOnly
-                  ? incomingMessageDocs.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final lastMessageAt = data['lastMessageAt'] as Timestamp?;
-                      return isNewItem(lastMessageAt, messageSeenAt);
-                    }).toList()
-                  : incomingMessageDocs;
+              final filteredIncomingMessageDocs = incomingMessageDocs.where((
+                doc,
+              ) {
+                if (deletedMessageIds.contains(doc.id)) {
+                  return false;
+                }
+
+                final data = doc.data() as Map<String, dynamic>;
+                final lastMessageAt = data['lastMessageAt'] as Timestamp?;
+                final isNew = isNewItem(lastMessageAt, messageSeenAt);
+                final isArchived = archivedMessageIds.contains(doc.id);
+
+                return matchesFilter(isNew: isNew, isArchived: isArchived);
+              }).toList();
 
               if (filteredIncomingMessageDocs.isEmpty) {
                 return Container(
@@ -205,109 +314,163 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                   final isNew = isNewItem(lastMessageAt, messageSeenAt);
 
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PeerDetailScreen(
-                            peerUserId: otherUserId,
-                            peerName: peerName,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
+                  return Dismissible(
+                    key: ValueKey('message_${doc.id}'),
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF0F766E),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.archive_outlined, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Archive',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE4583E),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: const Color(0xFFE8EEFF),
-                            child: Text(
-                              peerName.isNotEmpty
-                                  ? peerName[0].toUpperCase()
-                                  : 'P',
-                              style: const TextStyle(
-                                color: Color(0xFF2346A0),
-                                fontWeight: FontWeight.w700,
+                          Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.delete_outline, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.startToEnd) {
+                        await archiveMessageNotification(doc.id);
+                      } else {
+                        await deleteMessageNotification(doc.id);
+                      }
+                      return false;
+                    },
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PeerDetailScreen(
+                              peerUserId: otherUserId,
+                              peerName: peerName,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x12000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: const Color(0xFFE8EEFF),
+                              child: Text(
+                                peerName.isNotEmpty
+                                    ? peerName[0].toUpperCase()
+                                    : 'P',
+                                style: const TextStyle(
+                                  color: Color(0xFF2346A0),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        peerName,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C2434),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isNew)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE8EEFF),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'New',
-                                          style: TextStyle(
-                                            color: Color(0xFF2346A0),
-                                            fontSize: 11,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          peerName,
+                                          style: const TextStyle(
+                                            fontSize: 16,
                                             fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1C2434),
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  lastMessage,
-                                  style: const TextStyle(
-                                    color: Color(0xFF667085),
-                                    height: 1.4,
+                                      if (isNew)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE8EEFF),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'New',
+                                            style: TextStyle(
+                                              color: Color(0xFF2346A0),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  formatTime(lastMessageAt),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF98A2B3),
-                                    fontWeight: FontWeight.w600,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    lastMessage,
+                                    style: const TextStyle(
+                                      color: Color(0xFF667085),
+                                      height: 1.4,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    formatTime(lastMessageAt),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF98A2B3),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -361,14 +524,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 final data = doc.data() as Map<String, dynamic>;
                 return (data['createdByUid'] ?? '') != user.uid;
               }).toList();
-              final filteredOtherUserQuestions = showUnreadOnly
-                  ? otherUserQuestions.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final createdAt = data['createdAt'] as Timestamp?;
-                      return isNewItem(createdAt, questionSeenAt);
-                    }).toList()
-                  : otherUserQuestions;
+              final filteredOtherUserQuestions = otherUserQuestions.where((
+                doc,
+              ) {
+                if (deletedQuestionIds.contains(doc.id)) {
+                  return false;
+                }
 
+                final data = doc.data() as Map<String, dynamic>;
+                final createdAt = data['createdAt'] as Timestamp?;
+                final isNew = isNewItem(createdAt, questionSeenAt);
+                final isArchived = archivedQuestionIds.contains(doc.id);
+
+                return matchesFilter(isNew: isNew, isArchived: isArchived);
+              }).toList();
               if (filteredOtherUserQuestions.isEmpty) {
                 return Container(
                   padding: const EdgeInsets.all(16),
@@ -393,115 +562,170 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   final createdAt = data['createdAt'] as Timestamp?;
                   final isNew = isNewItem(createdAt, questionSeenAt);
 
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onOpenTab?.call(1);
-                      widget.onOpenQuestionSearch?.call(question);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
+                  return Dismissible(
+                    key: ValueKey('question_${doc.id}'),
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF0F766E),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.archive_outlined, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Archive',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE4583E),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              color: type == 'HR'
-                                  ? const Color(0xFFE7F0FF)
-                                  : const Color(0xFFE8F7EC),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              type == 'HR'
-                                  ? Icons.person_outline
-                                  : Icons.memory_rounded,
-                              color: type == 'HR'
-                                  ? const Color(0xFF2F67D8)
-                                  : const Color(0xFF2E9D57),
+                          Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        question,
-                                        style: const TextStyle(
-                                          fontSize: 15.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C2434),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isNew)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE8EEFF),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'New',
-                                          style: TextStyle(
-                                            color: Color(0xFF2346A0),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Type: $type',
-                                  style: const TextStyle(
-                                    color: Color(0xFF667085),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Added by: $createdBy',
-                                  style: const TextStyle(
-                                    color: Color(0xFF98A2B3),
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  formatTime(createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF98A2B3),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.delete_outline, color: Colors.white),
                         ],
+                      ),
+                    ),
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.startToEnd) {
+                        await archiveQuestionNotification(doc.id);
+                      } else {
+                        await deleteQuestionNotification(doc.id);
+                      }
+                      return false;
+                    },
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.onOpenTab?.call(1);
+                        widget.onOpenQuestionSearch?.call(question);
+                      },
+
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x12000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 48,
+                              width: 48,
+                              decoration: BoxDecoration(
+                                color: type == 'HR'
+                                    ? const Color(0xFFE7F0FF)
+                                    : const Color(0xFFE8F7EC),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                type == 'HR'
+                                    ? Icons.person_outline
+                                    : Icons.memory_rounded,
+                                color: type == 'HR'
+                                    ? const Color(0xFF2F67D8)
+                                    : const Color(0xFF2E9D57),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          question,
+                                          style: const TextStyle(
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1C2434),
+                                          ),
+                                        ),
+                                      ),
+                                      if (isNew)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE8EEFF),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'New',
+                                            style: TextStyle(
+                                              color: Color(0xFF2346A0),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Type: $type',
+                                    style: const TextStyle(
+                                      color: Color(0xFF667085),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Added by: $createdBy',
+                                    style: const TextStyle(
+                                      color: Color(0xFF98A2B3),
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    formatTime(createdAt),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF98A2B3),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

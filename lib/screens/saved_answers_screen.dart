@@ -23,8 +23,7 @@ class SavedAnswersScreen extends StatelessWidget {
       }
     }
 
-    final double lengthScore =
-        wordCount >= 30 ? 40.0 : (wordCount / 30) * 40.0;
+    final double lengthScore = wordCount >= 30 ? 40.0 : (wordCount / 30) * 40.0;
 
     final double keywordScore = keywords.isEmpty
         ? 0.0
@@ -75,54 +74,80 @@ class SavedAnswersScreen extends StatelessWidget {
 
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved answer deleted')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Saved answer deleted')));
   }
 
   Future<void> deleteAllAnswers({
-  required BuildContext context,
-  required String userId,
-}) async {
-  final shouldDelete = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Delete All Saved Answers'),
-        content: const Text(
-          'Kya aap sure hain ki aap saare saved answers delete karna chahte ho?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+    required BuildContext context,
+    required String userId,
+  }) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete All Saved Answers'),
+          content: const Text(
+            'Kya aap sure hain ki aap saare saved answers delete karna chahte ho?',
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete All'),
-          ),
-        ],
-      );
-    },
-  );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete All'),
+            ),
+          ],
+        );
+      },
+    );
 
-  if (shouldDelete != true) return;
+    if (shouldDelete != true) return;
 
-  final snapshot = await FirebaseFirestore.instance
-      .collection('saved_answers')
-      .where('userId', isEqualTo: userId)
-      .get();
+    final snapshot = await FirebaseFirestore.instance
+        .collection('saved_answers')
+        .where('userId', isEqualTo: userId)
+        .get();
 
-  for (final doc in snapshot.docs) {
-    await doc.reference.delete();
+    for (final doc in snapshot.docs) {
+      await doc.reference.delete();
+    }
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('All saved answers deleted')));
   }
 
-  if (!context.mounted) return;
+  Future<void> togglePinAnswer({
+    required BuildContext context,
+    required String docId,
+    required bool currentPinnedValue,
+  }) async {
+    await FirebaseFirestore.instance
+        .collection('saved_answers')
+        .doc(docId)
+        .update({
+          'isPinned': !currentPinnedValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('All saved answers deleted')),
-  );
-}
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          currentPinnedValue
+              ? 'Saved answer unpinned'
+              : 'Saved answer pinned to top',
+        ),
+      ),
+    );
+  }
 
   Future<void> editAnswer({
     required BuildContext context,
@@ -178,8 +203,9 @@ class SavedAnswersScreen extends StatelessWidget {
 
                           int matchedKeywords = 0;
                           for (final keyword in keywords) {
-                            if (normalizedAnswer
-                                .contains(keyword.toLowerCase())) {
+                            if (normalizedAnswer.contains(
+                              keyword.toLowerCase(),
+                            )) {
                               matchedKeywords++;
                             }
                           }
@@ -192,8 +218,8 @@ class SavedAnswersScreen extends StatelessWidget {
                               ? 0.0
                               : (matchedKeywords / keywords.length) * 60.0;
 
-                          final double finalScore =
-                              (lengthScore + keywordScore).toDouble();
+                          final double finalScore = (lengthScore + keywordScore)
+                              .toDouble();
 
                           String weakArea;
                           if (wordCount < 10) {
@@ -214,14 +240,14 @@ class SavedAnswersScreen extends StatelessWidget {
                               .collection('saved_answers')
                               .doc(docId)
                               .update({
-                            'answer': newAnswer,
-                            'wordCount': wordCount,
-                            'matchedKeywords': matchedKeywords,
-                            'totalKeywords': keywords.length,
-                            'score': finalScore,
-                            'weakArea': weakArea,
-                            'updatedAt': FieldValue.serverTimestamp(),
-                          });
+                                'answer': newAnswer,
+                                'wordCount': wordCount,
+                                'matchedKeywords': matchedKeywords,
+                                'totalKeywords': keywords.length,
+                                'score': finalScore,
+                                'weakArea': weakArea,
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
 
                           if (!context.mounted) return;
 
@@ -254,40 +280,16 @@ class SavedAnswersScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-  "Your Saved Answers",
-  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-),
-const SizedBox(height: 6),
-const Text(
-  "Yahan aap apne saved answers dekh, edit aur delete kar sakte ho",
-  style: TextStyle(color: Color(0xFF667085)),
-),
-const SizedBox(height: 14),
-SizedBox(
-  width: double.infinity,
-  child: OutlinedButton.icon(
-    onPressed: user == null
-        ? null
-        : () {
-            deleteAllAnswers(
-              context: context,
-              userId: user.uid,
-            );
-          },
-    icon: const Icon(Icons.delete_sweep_outlined),
-    label: const Text('Delete All Saved'),
-    style: OutlinedButton.styleFrom(
-      foregroundColor: const Color(0xFFE4583E),
-      side: const BorderSide(color: Color(0xFFE4583E)),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
-  ),
-),
-const SizedBox(height: 18),
-Expanded(
+              "Your Saved Answers",
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Yahan aap apne saved answers dekh, edit aur manage kar sakte ho",
+              style: TextStyle(color: Color(0xFF667085)),
+            ),
+            const SizedBox(height: 18),
+            Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('saved_answers')
@@ -301,11 +303,34 @@ Expanded(
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text('Saved answers load nahi hue: ${snapshot.error}'),
+                      child: Text(
+                        'Saved answers load nahi hue: ${snapshot.error}',
+                      ),
                     );
                   }
 
-                  final docs = snapshot.data?.docs ?? [];
+                  final docs = (snapshot.data?.docs ?? []).toList();
+
+                  docs.sort((a, b) {
+                    final aData = a.data() as Map<String, dynamic>;
+                    final bData = b.data() as Map<String, dynamic>;
+
+                    final aPinned = aData['isPinned'] == true ? 1 : 0;
+                    final bPinned = bData['isPinned'] == true ? 1 : 0;
+
+                    if (aPinned != bPinned) {
+                      return bPinned.compareTo(aPinned);
+                    }
+
+                    final aUpdatedAt = aData['updatedAt'] as Timestamp?;
+                    final bUpdatedAt = bData['updatedAt'] as Timestamp?;
+
+                    if (aUpdatedAt == null && bUpdatedAt == null) return 0;
+                    if (aUpdatedAt == null) return 1;
+                    if (bUpdatedAt == null) return -1;
+
+                    return bUpdatedAt.compareTo(aUpdatedAt);
+                  });
 
                   if (docs.isEmpty) {
                     return const Center(
@@ -316,112 +341,257 @@ Expanded(
                     );
                   }
 
-                  return ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
+                  return ListView(
+                    children: [
+                      ...List.generate(docs.length, (index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
 
-                      final question = data['question'] ?? '';
-                      final answer = data['answer'] ?? '';
-                      final score = data['score'] ?? 0;
-                      final weakArea = data['weakArea'] ?? '';
-                      final type = data['type'] ?? 'General';
-                      final speechConfidence = (data['speechConfidence'] ?? 0).toDouble();
-                      final keywords = List<String>.from(data['keywords'] ?? []);
+                        final question = data['question'] ?? '';
+                        final answer = data['answer'] ?? '';
+                        final score = data['score'] ?? 0;
+                        final weakArea = data['weakArea'] ?? '';
+                        final type = data['type'] ?? 'General';
+                        final isPinned = data['isPinned'] == true;
+                        final speechConfidence = (data['speechConfidence'] ?? 0)
+                            .toDouble();
+                        final keywords = List<String>.from(
+                          data['keywords'] ?? [],
+                        );
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x12000000),
-                              blurRadius: 12,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              question,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1C2434),
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x12000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Type: $type',
-                              style: const TextStyle(color: Color(0xFF667085)),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              answer,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            
-                            Text(
-                              'Score: ${score.toString()} | Weak Area: $weakArea',
-                              style: const TextStyle(
-                                color: Color(0xFF2346A0),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Voice Accuracy: ${(speechConfidence * 100).toStringAsFixed(1)}%',
-                              style: const TextStyle(
-                                color: Color(0xFF667085),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () {
-                                      editAnswer(
-                                        context: context,
-                                        docId: doc.id,
-                                        oldAnswer: answer,
-                                        keywords: keywords,
-                                      );
-                                    },
-                                    icon: const Icon(Icons.edit),
-                                    label: const Text('Edit'),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      question,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1C2434),
+                                      ),
+                                    ),
                                   ),
+                                  if (isPinned)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE8EEFF),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Pinned',
+                                        style: TextStyle(
+                                          color: Color(0xFF2346A0),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Type: $type',
+                                style: const TextStyle(
+                                  color: Color(0xFF667085),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () {
-                                      deleteAnswer(
-                                        context: context,
-                                        docId: doc.id,
-                                      );
-                                    },
-                                    icon: const Icon(Icons.delete),
-                                    label: const Text('Delete'),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                answer,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Score: ${score.toString()} | Weak Area: $weakArea',
+                                style: const TextStyle(
+                                  color: Color(0xFF2346A0),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Voice Accuracy: ${(speechConfidence * 100).toStringAsFixed(1)}%',
+                                style: const TextStyle(
+                                  color: Color(0xFF667085),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        togglePinAnswer(
+                                          context: context,
+                                          docId: doc.id,
+                                          currentPinnedValue: isPinned,
+                                        );
+                                      },
+                                      icon: Icon(
+                                        isPinned
+                                            ? Icons.push_pin
+                                            : Icons.push_pin_outlined,
+                                        size: 17,
+                                      ),
+                                      label: Text(
+                                        isPinned ? 'Unpin' : 'Pin',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFF2346A0,
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFFEAF1FF,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFFC9D9FF),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        textStyle: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        editAnswer(
+                                          context: context,
+                                          docId: doc.id,
+                                          oldAnswer: answer,
+                                          keywords: keywords,
+                                        );
+                                      },
+                                      icon: const Icon(Icons.edit, size: 17),
+                                      label: const Text(
+                                        'Edit',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFF0F766E,
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFFE8F7F4,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFFBFE9E1),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        textStyle: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        deleteAnswer(
+                                          context: context,
+                                          docId: doc.id,
+                                        );
+                                      },
+                                      icon: const Icon(Icons.delete, size: 17),
+                                      label: const Text(
+                                        'Delete',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFFE4583E,
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFFFFF1EE,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFFFFD4CC),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        textStyle: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+
+                      const SizedBox(height: 10),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: user == null
+                              ? null
+                              : () {
+                                  deleteAllAnswers(
+                                    context: context,
+                                    userId: user.uid,
+                                  );
+                                },
+                          icon: const Icon(Icons.delete_sweep_outlined),
+                          label: const Text('Delete All Saved'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE4583E),
+                            backgroundColor: const Color(0xFFFFF1EE),
+                            side: const BorderSide(color: Color(0xFFFFD4CC)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          ],
+                          ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   );
                 },
               ),
